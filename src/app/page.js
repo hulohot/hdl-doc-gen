@@ -203,7 +203,7 @@ export default function Home() {
           </p>
           <p className="text-yellow-500 dark:text-yellow-400">
             <strong>API Key Disclaimer:</strong> Your OpenAI API key is required for AI-generated descriptions but is not stored on our servers. 
-            It is securely saved in your browser's local storage for convenience.
+            It is securely saved in your browser&aposs local storage for convenience.
           </p>
         </div>
 
