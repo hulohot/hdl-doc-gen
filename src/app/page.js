@@ -13,6 +13,8 @@ export default function Home() {
   const [darkMode, setDarkMode] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [apiKey, setApiKey] = useState('');
+  const [isApiKeyBlurred, setIsApiKeyBlurred] = useState(false);
+  const [genericPorts, setGenericPorts] = useState([]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -23,19 +25,36 @@ export default function Home() {
     root.style.setProperty('--code-bg-color', darkMode ? '#1f2937' : '#f3f4f6');
   }, [darkMode]);
 
+  useEffect(() => {
+    // Check for stored API key on component mount
+    const storedApiKey = localStorage.getItem('secureApiKey');
+    if (storedApiKey) {
+      console.log('Retrieved stored API key (first 4 chars):', storedApiKey.substring(0, 4));
+      setApiKey(storedApiKey);
+      setIsApiKeyBlurred(true);
+    } else {
+      console.log('No stored API key found');
+    }
+  }, []);
+
   const generateDocumentation = async () => {
     setIsLoading(true);
     const parser = new VerilogParser(verilogCode);
     const moduleName = parser.getModuleName();
     const ports = parser.getPorts();
+    const genericPorts = parser.getGenericPorts();
+    setGenericPorts(genericPorts);
     
     let aiDescription = '';
     if (apiKey) {
       try {
-        aiDescription = await AIDescriptionGenerator.generate(verilogCode, apiKey);
+        console.log('Attempting to generate AI description...');
+        console.log('API Key (first 4 chars):', apiKey.substring(0, 4));
+        aiDescription = await AIDescriptionGenerator.generate(verilogCode, apiKey, genericPorts);
       } catch (error) {
         console.error('Error generating AI description:', error);
-        aiDescription = 'Unable to generate AI description. Error: ' + error.message;
+        console.error('Error stack:', error.stack);
+        aiDescription = `Unable to generate AI description. Error: ${error.message}. Please check the console for more details.`;
       }
     } else {
       aiDescription = 'Enter your OpenAI API key to generate an AI description of the module.';
@@ -44,7 +63,7 @@ export default function Home() {
     const sampleUsage = parser.generateSampleUsage();
     const testbench = parser.generateTestbench();
 
-    setDocumentation({ moduleName, ports, aiDescription, sampleUsage, testbench });
+    setDocumentation({ moduleName, ports, genericPorts, aiDescription, sampleUsage, testbench });
     setIsLoading(false);
   };
 
@@ -52,11 +71,22 @@ export default function Home() {
     if (!documentation) return '';
 
     let markdown = `# ${documentation.moduleName}\n\n`;
+    
+    if (documentation.genericPorts.length > 0) {
+      markdown += `## Generic Parameters\n\n`;
+      markdown += `| Name | Default Value |\n`;
+      markdown += `|------|---------------|\n`;
+      documentation.genericPorts.forEach(param => {
+        markdown += `| ${param.name} | ${param.defaultValue} |\n`;
+      });
+      markdown += `\n`;
+    }
+    
     markdown += `## Ports\n\n`;
-    markdown += `| Name | Direction | Width |\n`;
-    markdown += `|------|-----------|-------|\n`;
+    markdown += `| Name | Direction | Width | Type |\n`;
+    markdown += `|------|-----------|-------|------|\n`;
     documentation.ports.forEach(port => {
-      markdown += `| ${port.name} | ${port.direction} | ${port.width} |\n`;
+      markdown += `| ${port.name} | ${port.direction} | ${port.width} | ${port.type} |\n`;
     });
 
     markdown += `\n## Block Diagram\n\n`;
@@ -126,6 +156,25 @@ export default function Home() {
 
   const toggleColor = lerpColor('#d1d5db', '#4b5563', darkMode ? 1 : 0);
 
+  const handleApiKeyChange = (e) => {
+    setApiKey(e.target.value);
+    setIsApiKeyBlurred(false);
+  };
+
+  const handleApiKeySubmit = () => {
+    if (apiKey) {
+      console.log('Storing API key (first 4 chars):', apiKey.substring(0, 4));
+      localStorage.setItem('secureApiKey', apiKey);
+      setIsApiKeyBlurred(true);
+    }
+  };
+
+  const handleApiKeyClear = () => {
+    setApiKey('');
+    setIsApiKeyBlurred(false);
+    localStorage.removeItem('secureApiKey');
+  };
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-between p-24 transition-colors" style={{
       backgroundColor: 'var(--bg-color)',
@@ -144,7 +193,19 @@ export default function Home() {
             </span>
           </label>
         </div>
-        
+
+        {/* Add app description and API key disclaimer here */}
+        <div className="mb-6 text-sm">
+          <p className="mb-2">
+            This Verilog Document Generator helps you create comprehensive documentation for your Verilog modules. 
+            It extracts module information, generates sample usage and testbenches, and can provide AI-generated descriptions.
+          </p>
+          <p className="text-yellow-500 dark:text-yellow-400">
+            <strong>API Key Disclaimer:</strong> Your OpenAI API key is required for AI-generated descriptions but is not stored on our servers. 
+            It is securely saved in your browser's local storage for convenience.
+          </p>
+        </div>
+
         <textarea
           className="w-full h-40 p-2 border rounded"
           style={{
@@ -159,20 +220,36 @@ export default function Home() {
           onChange={(e) => setVerilogCode(e.target.value)}
         />
         
-        <input
-          className="w-full mt-2 p-2 border rounded"
-          style={{
-            backgroundColor: 'var(--bg-color)',
-            color: 'var(--text-color)',
-            borderColor: 'var(--border-color)',
-            transitionProperty: 'background-color, color, border-color',
-            transitionDuration: 'var(--transition-time)'
-          }}
-          type="text"
-          placeholder="OpenAI API Key (required for AI description)"
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
-        />
+        <div className="mt-2 flex space-x-2">
+          <input
+            className="w-full p-2 border rounded"
+            style={{
+              backgroundColor: 'var(--bg-color)',
+              color: 'var(--text-color)',
+              borderColor: 'var(--border-color)',
+              transitionProperty: 'background-color, color, border-color',
+              transitionDuration: 'var(--transition-time)'
+            }}
+            type={isApiKeyBlurred ? "password" : "text"}
+            placeholder="OpenAI API Key (required for AI description)"
+            value={isApiKeyBlurred ? '••••••••••••••••' : apiKey}
+            onChange={handleApiKeyChange}
+          />
+          <button
+            className="px-4 py-2 bg-blue-500 text-white rounded"
+            onClick={handleApiKeySubmit}
+          >
+            Submit
+          </button>
+          {isApiKeyBlurred && (
+            <button
+              className="px-4 py-2 bg-red-500 text-white rounded"
+              onClick={handleApiKeyClear}
+            >
+              Clear
+            </button>
+          )}
+        </div>
         
         <div className="mt-4 flex space-x-4 items-center">
           <button
@@ -217,6 +294,28 @@ export default function Home() {
           <div className="mt-8" style={{ color: 'var(--text-color)' }}>
             <h2 className="text-xl mb-2">Module: {documentation.moduleName}</h2>
             
+            {documentation.genericPorts.length > 0 && (
+              <>
+                <h3 className="text-lg mt-4 mb-2">Generic Parameters:</h3>
+                <table className="w-full border-collapse border" style={{ borderColor: 'var(--border-color)', transitionDuration: 'var(--transition-time)' }}>
+                  <thead>
+                    <tr>
+                      <th className="border p-2" style={{ borderColor: 'var(--border-color)' }}>Name</th>
+                      <th className="border p-2" style={{ borderColor: 'var(--border-color)' }}>Default Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {documentation.genericPorts.map((param, index) => (
+                      <tr key={index}>
+                        <td className="border p-2" style={{ borderColor: 'var(--border-color)' }}>{param.name}</td>
+                        <td className="border p-2" style={{ borderColor: 'var(--border-color)' }}>{param.defaultValue}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
+            
             <h3 className="text-lg mt-4 mb-2">Ports:</h3>
             <table className="w-full border-collapse border" style={{ borderColor: 'var(--border-color)', transitionDuration: 'var(--transition-time)' }}>
               <thead>
@@ -224,6 +323,7 @@ export default function Home() {
                   <th className="border p-2" style={{ borderColor: 'var(--border-color)' }}>Name</th>
                   <th className="border p-2" style={{ borderColor: 'var(--border-color)' }}>Direction</th>
                   <th className="border p-2" style={{ borderColor: 'var(--border-color)' }}>Width</th>
+                  <th className="border p-2" style={{ borderColor: 'var(--border-color)' }}>Type</th>
                 </tr>
               </thead>
               <tbody>
@@ -232,6 +332,7 @@ export default function Home() {
                     <td className="border p-2" style={{ borderColor: 'var(--border-color)' }}>{port.name}</td>
                     <td className="border p-2" style={{ borderColor: 'var(--border-color)' }}>{port.direction}</td>
                     <td className="border p-2" style={{ borderColor: 'var(--border-color)' }}>{port.width}</td>
+                    <td className="border p-2" style={{ borderColor: 'var(--border-color)' }}>{port.type}</td>
                   </tr>
                 ))}
               </tbody>

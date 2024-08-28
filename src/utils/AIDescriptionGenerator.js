@@ -1,30 +1,25 @@
-import axios from 'axios';
-
-export default class AIDescriptionGenerator {
-  static async generate(verilogCode, apiKey) {
+class AIDescriptionGenerator {
+  static async generate(verilogCode, apiKey, genericPorts) {
     try {
-      const response = await axios.post(
-        process.env.NEXT_PUBLIC_OPENAI_API_ENDPOINT,
-        {
-          model: 'gpt-4',
-          messages: [
-            { role: 'system', content: 'You are a helpful assistant that describes Verilog modules.' },
-            { role: 'user', content: `Describe this Verilog module:\n\n${verilogCode}` }
-          ],
-          max_tokens: 150
+      const response = await fetch('/api/generate-description', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        {
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+        body: JSON.stringify({ verilogCode, apiKey, genericPorts }),
+      });
 
-      return response.data.choices[0].message.content.trim();
+      if (!response.ok) {
+        throw new Error('Failed to generate description');
+      }
+
+      const data = await response.json();
+      return data.description;
     } catch (error) {
-      console.error('Error generating AI description:', error);
-      throw error; // Re-throw the error to be caught in the component
+      console.error('Error in AIDescriptionGenerator:', error);
+      throw error;
     }
   }
 }
+
+export default AIDescriptionGenerator;

@@ -24,10 +24,30 @@ export default class VerilogParser {
     return ports;
   }
 
+  getGenericPorts() {
+    const genericPortRegex = /parameter\s+(\w+)\s*=\s*([^,;\n]+)/g;
+    const genericPorts = [];
+    let match;
+
+    while ((match = genericPortRegex.exec(this.verilogCode)) !== null) {
+      genericPorts.push({
+        name: match[1],
+        defaultValue: match[2].trim()
+      });
+    }
+
+    return genericPorts;
+  }
+
   generateSampleUsage() {
     const moduleName = this.getModuleName();
     const ports = this.getPorts();
-    let sampleUsage = `${moduleName} instance_name (\n`;
+    const genericPorts = this.getGenericPorts();
+    let sampleUsage = `${moduleName} #(\n`;
+    genericPorts.forEach((param, index) => {
+      sampleUsage += `  .${param.name}(${param.defaultValue})${index < genericPorts.length - 1 ? ',' : ''}\n`;
+    });
+    sampleUsage += `) instance_name (\n`;
     ports.forEach((port, index) => {
       sampleUsage += `  .${port.name}(${port.name})${index < ports.length - 1 ? ',' : ''}\n`;
     });
@@ -38,9 +58,16 @@ export default class VerilogParser {
   generateTestbench() {
     const moduleName = this.getModuleName();
     const ports = this.getPorts();
+    const genericPorts = this.getGenericPorts();
     
     let testbench = `\`timescale 1ns / 1ps\n\n`;
     testbench += `module ${moduleName}_tb;\n\n`;
+    
+    // Declare parameters
+    genericPorts.forEach(param => {
+      testbench += `  parameter ${param.name} = ${param.defaultValue};\n`;
+    });
+    testbench += '\n';
     
     // Declare reg and wire
     ports.forEach(port => {
@@ -49,7 +76,11 @@ export default class VerilogParser {
     });
     
     testbench += `\n  // Instantiate the Unit Under Test (UUT)\n`;
-    testbench += `  ${moduleName} uut (\n`;
+    testbench += `  ${moduleName} #(\n`;
+    genericPorts.forEach((param, index) => {
+      testbench += `    .${param.name}(${param.name})${index < genericPorts.length - 1 ? ',' : ''}\n`;
+    });
+    testbench += `  ) uut (\n`;
     ports.forEach((port, index) => {
       testbench += `    .${port.name}(${port.name})${index < ports.length - 1 ? ',' : ''}\n`;
     });
