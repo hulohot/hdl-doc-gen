@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Image from "next/image";
-import VerilogParser from '../utils/VerilogParser';
+import ParserFactory from '../utils/ParserFactory';
 import SVGGenerator from '../utils/SVGGenerator';
 import AIDescriptionGenerator from '../utils/AIDescriptionGenerator';
 import CircuitSpinner from '../components/CircuitSpinner';
@@ -15,6 +15,7 @@ export default function Home() {
   const [apiKey, setApiKey] = useState('');
   const [isApiKeyBlurred, setIsApiKeyBlurred] = useState(false);
   const [genericPorts, setGenericPorts] = useState([]);
+  const [hdlType, setHdlType] = useState('verilog');
 
   useEffect(() => {
     const root = document.documentElement;
@@ -39,7 +40,7 @@ export default function Home() {
 
   const generateDocumentation = async () => {
     setIsLoading(true);
-    const parser = new VerilogParser(verilogCode);
+    const parser = ParserFactory.createParser(hdlType, verilogCode);
     const moduleName = parser.getModuleName();
     const ports = parser.getPorts();
     const genericPorts = parser.getGenericPorts();
@@ -50,7 +51,7 @@ export default function Home() {
       try {
         console.log('Attempting to generate AI description...');
         console.log('API Key (first 4 chars):', apiKey.substring(0, 4));
-        aiDescription = await AIDescriptionGenerator.generate(verilogCode, apiKey, genericPorts);
+        aiDescription = await AIDescriptionGenerator.generate(verilogCode, apiKey, genericPorts, hdlType);
       } catch (error) {
         console.error('Error generating AI description:', error);
         console.error('Error stack:', error.stack);
@@ -206,6 +207,22 @@ export default function Home() {
           </p>
         </div>
 
+        <select
+          className="mt-2 p-2 border rounded mb-4"
+          value={hdlType}
+          onChange={(e) => setHdlType(e.target.value)}
+          style={{
+            backgroundColor: 'var(--bg-color)',
+            color: 'var(--text-color)',
+            borderColor: 'var(--border-color)',
+            transitionProperty: 'background-color, color, border-color',
+            transitionDuration: 'var(--transition-time)'
+          }}
+        >
+          <option value="verilog">Verilog</option>
+          <option value="vhdl">VHDL</option>
+        </select>
+
         <textarea
           className="w-full h-40 p-2 border rounded"
           style={{
@@ -215,7 +232,7 @@ export default function Home() {
             transitionProperty: 'background-color, color, border-color',
             transitionDuration: 'var(--transition-time)'
           }}
-          placeholder="Paste your Verilog code here"
+          placeholder={`Paste your ${hdlType} code here`}
           value={verilogCode}
           onChange={(e) => setVerilogCode(e.target.value)}
         />
@@ -301,6 +318,7 @@ export default function Home() {
                   <thead>
                     <tr>
                       <th className="border p-2" style={{ borderColor: 'var(--border-color)' }}>Name</th>
+                      <th className="border p-2" style={{ borderColor: 'var(--border-color)' }}>Type</th>
                       <th className="border p-2" style={{ borderColor: 'var(--border-color)' }}>Default Value</th>
                     </tr>
                   </thead>
@@ -308,6 +326,7 @@ export default function Home() {
                     {documentation.genericPorts.map((param, index) => (
                       <tr key={index}>
                         <td className="border p-2" style={{ borderColor: 'var(--border-color)' }}>{param.name}</td>
+                        <td className="border p-2" style={{ borderColor: 'var(--border-color)' }}>{hdlType === 'vhdl' ? param.type : '-'}</td>
                         <td className="border p-2" style={{ borderColor: 'var(--border-color)' }}>{param.defaultValue}</td>
                       </tr>
                     ))}

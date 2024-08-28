@@ -1,11 +1,14 @@
-export default class VerilogParser {
+import HDLParser from './HDLParser';
+
+export default class VerilogParser extends HDLParser {
   constructor(verilogCode) {
+    super(verilogCode);
     this.verilogCode = verilogCode;
   }
 
   getModuleName() {
     const moduleRegex = /module\s+(\w+)/;
-    const match = this.verilogCode.match(moduleRegex);
+    const match = this.code.match(moduleRegex);
     return match ? match[1] : 'Unknown';
   }
 
@@ -13,7 +16,7 @@ export default class VerilogParser {
     const portRegex = /(input|output|inout)\s+(reg|wire)?\s*(\[[\d:]+\])?\s*(\w+)/g;
     const ports = [];
     let match;
-    while ((match = portRegex.exec(this.verilogCode)) !== null) {
+    while ((match = portRegex.exec(this.code)) !== null) {
       ports.push({
         direction: match[1],
         type: match[2] || 'wire',
@@ -29,7 +32,7 @@ export default class VerilogParser {
     const genericPorts = [];
     let match;
 
-    while ((match = genericPortRegex.exec(this.verilogCode)) !== null) {
+    while ((match = genericPortRegex.exec(this.code)) !== null) {
       genericPorts.push({
         name: match[1],
         defaultValue: match[2].trim()

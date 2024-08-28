@@ -5,32 +5,32 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { verilogCode, apiKey, genericPorts } = req.body;
+  const { code, apiKey, genericPorts, hdlType } = req.body;
 
-  if (!verilogCode || !apiKey) {
-    return res.status(400).json({ error: 'Missing verilogCode or apiKey' });
+  if (!code || !apiKey || !hdlType) {
+    return res.status(400).json({ error: 'Missing code, apiKey, or hdlType' });
   }
 
   try {
     const openai = new OpenAI({ apiKey });
     
-    let prompt = "You are an expert in Verilog and digital design. Provide a concise description of the following Verilog module, including its functionality, ports, and generic parameters (if any).\n\n";
+    let prompt = `You are an expert in ${hdlType.toUpperCase()} and digital design. Provide a concise description of the following ${hdlType.toUpperCase()} ${hdlType === 'vhdl' ? 'entity' : 'module'}, including its functionality, ports, and generic parameters (if any).\n\n`;
     
     if (genericPorts && genericPorts.length > 0) {
       prompt += "Generic parameters:\n";
       genericPorts.forEach(param => {
-        prompt += `- ${param.name} (default: ${param.defaultValue})\n`;
+        prompt += `- ${param.name} (${hdlType === 'vhdl' ? `type: ${param.type}, ` : ''}default: ${param.defaultValue})\n`;
       });
       prompt += "\n";
     }
     
-    prompt += "Verilog code:\n" + verilogCode;
+    prompt += `${hdlType.toUpperCase()} code:\n` + code;
 
     const response = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [
         { role: "system", content: prompt },
-        { role: "user", content: "Describe this Verilog module concisely." }
+        { role: "user", content: `Describe this ${hdlType.toUpperCase()} ${hdlType === 'vhdl' ? 'entity' : 'module'} concisely.` }
       ],
       max_tokens: 200
     });

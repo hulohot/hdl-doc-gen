@@ -13,15 +13,13 @@ export default class SVGGenerator {
 
     ports.forEach((port, index) => {
       const y = 40 + index * 20;
-      const direction = port.direction === 'input' ? '→' : '←';
-      const x = port.direction === 'input' ? 5 : width - 5;
-      const textAnchor = port.direction === 'input' ? 'start' : 'end';
-      const textX = port.direction === 'input' ? x + 10 : x - 10;
-      
-      // Adjust y position for output ports
-      const adjustedY = port.direction === 'output' ? y - 10 : y;
+      const isInput = ['in', 'input'].includes(port.direction.toLowerCase());
+      const direction = isInput ? '→' : '←';
+      const x = isInput ? 5 : width - 5;
+      const textAnchor = isInput ? 'start' : 'end';
+      const textX = isInput ? x + 10 : x - 10;
 
-      svg += `<text x="${textX}" y="${adjustedY}" text-anchor="${textAnchor}" font-family="Arial" font-size="10" fill="${textColor}">${port.name} ${direction}</text>`;
+      svg += `<text x="${textX}" y="${y}" text-anchor="${textAnchor}" font-family="Arial" font-size="10" fill="${textColor}">${isInput ? direction + ' ' + port.name : port.name + ' ' + direction}</text>`;
     });
 
     svg += '</svg>';

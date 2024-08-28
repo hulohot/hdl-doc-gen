@@ -1,12 +1,12 @@
 class AIDescriptionGenerator {
-  static async generate(verilogCode, apiKey, genericPorts) {
+  static async generate(code, apiKey, genericPorts, hdlType) {
     try {
       const response = await fetch('/api/generate-description', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ verilogCode, apiKey, genericPorts }),
+        body: JSON.stringify({ code, apiKey, genericPorts, hdlType }),
       });
 
       if (!response.ok) {
